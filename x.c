@@ -56,6 +56,7 @@ static void selpaste(const Arg *);
 static void zoom(const Arg *);
 static void zoomabs(const Arg *);
 static void zoomreset(const Arg *);
+static void switchcolor(int);
 
 /* config.h for applying patches and the configuration. */
 #include "config.h"
@@ -192,7 +193,7 @@ static void (*handler[LASTEvent])(XEvent *) = {
  * Uncomment if you want the selection to disappear when you select something
  * different in another window.
  */
-/*	[SelectionClear] = selclear_, */
+	[SelectionClear] = selclear_,
 	[SelectionNotify] = selnotify,
 /*
  * PropertyNotify is only turned on when there is some INCR transfer happening
@@ -1870,6 +1871,46 @@ run(void)
 	}
 }
 
+static int file_exists(const char *path)
+{
+	struct stat sb;
+	if (stat(path, &sb) < 0)
+		return 0;
+	if (S_ISREG(sb.st_mode))
+		return 1;
+	return 0;
+}
+
+void copy_colors(const char *dest[], const char *src[])
+{
+	int i;
+
+	for (i = 0; i < sizeof(colorname) / sizeof(char *); i++)
+		dest[i] = src[i];
+}
+
+#define BRIGHTFILE "/home/shallyn/bright" // TODO expand or move into config.def.h
+void
+switchcolor(int a)
+{
+	if (file_exists(BRIGHTFILE)) {
+		defaultfg = defaultfg_white;
+		defaultbg = defaultbg_white;
+		defaultcs = defaultcs_white;
+		defaultrcs = defaultrcs_white;
+		copy_colors(colorname, colorname_white);
+	} else {
+		defaultfg = defaultfg_black;
+		defaultbg = defaultbg_black;
+		defaultcs = defaultcs_black;
+		defaultrcs = defaultrcs_black;
+		copy_colors(colorname, colorname_black);
+	}
+	if (a != -1)
+		redraw();
+	signal(SIGUSR2, switchcolor);
+}
+
 void
 usage(void)
 {
@@ -1889,6 +1930,9 @@ main(int argc, char *argv[])
 	xw.l = xw.t = 0;
 	xw.isfixed = False;
 	win.cursor = cursorshape;
+
+	signal(SIGUSR2, switchcolor);
+	switchcolor(-1);
 
 	ARGBEGIN {
 	case 'a':
